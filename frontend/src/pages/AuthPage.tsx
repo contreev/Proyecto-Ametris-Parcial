@@ -19,27 +19,32 @@ const AuthPage: React.FC = () => {
 
     try {
       if (isLogin) {
-        // ---- LOGIN ----
-        const res = await fetch("http://localhost:8080/api/login", {
+  // ---- LOGIN ----
+  const res = await fetch("http://localhost:8080/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
 
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password }),
-        });
+  const data = await res.json();
+  console.log("🔐 Respuesta del backend (login):", data); // 👈 Verás el token aquí
 
-        if (!res.ok) {
-          throw new Error("Credenciales inválidas");
-        }
+  if (!res.ok) {
+    throw new Error(data.error || "Credenciales inválidas");
+  }
 
-        const data = await res.json();
-        localStorage.setItem("token", data.token);
-        navigate("/"); // redirige al home
-      } else {
-        // ---- REGISTRO ----
-        const res = await fetch("http://localhost:8080/api/register", {
+  // ✅ Guardamos el token y el rol
+  localStorage.setItem("token", data.token);
+  localStorage.setItem("role", data.role);
+  localStorage.setItem("email", data.email);
 
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+  alert(`Inicio de sesión exitoso ✅\nRol: ${data.role}`);
+  navigate("/"); // redirige al home
+} else {
+  // ---- REGISTRO ----
+  const res = await fetch("http://localhost:8080/api/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ email, password, role }),
         });
 

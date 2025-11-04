@@ -1,12 +1,12 @@
 package models
 
-import (
-	"time"
-)
+import "time"
 
-// Auditoria representa un registro de eventos o acciones dentro del sistema
 type Auditoria struct {
-	ID      uint      `gorm:"primaryKey;autoIncrement"`
-	Mensaje string    `gorm:"type:text;not null"`
-	Fecha   time.Time `gorm:"autoCreateTime"`
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	UsuarioID uint      `json:"usuario_id"`
+	Accion    string    `json:"accion"`
+	Entidad   string    `json:"entidad"`
+	Detalles  string    `json:"detalles"`
+	Fecha     time.Time `json:"fecha"`
 }

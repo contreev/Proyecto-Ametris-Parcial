@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { FlaskConical, Sparkles, ClipboardCheck } from "lucide-react";
+import api from "../services/api";
+
+
+
+
+
 
 interface User {
   id: number;
@@ -25,8 +31,6 @@ interface Props {
   user?: User;
 }
 
-const API_URL = "http://localhost:8080/api/misiones";
-
 const Misiones: React.FC<Props> = ({ user }) => {
   const [misiones, setMisiones] = useState<Mision[]>([]);
   const [form, setForm] = useState({
@@ -39,12 +43,12 @@ const Misiones: React.FC<Props> = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [modoSupervisor] = useState<boolean>(user?.rol === "supervisor");
 
+  // 🔹 Obtener misiones (con token automático)
   const fetchMisiones = async () => {
     try {
       setLoading(true);
-      const res = await fetch(API_URL);
-      const data = await res.json();
-      setMisiones(Array.isArray(data) ? data : []);
+      const res = await api.get("/misiones");
+      setMisiones(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       console.error("Error al obtener misiones:", err);
     } finally {
@@ -56,31 +60,23 @@ const Misiones: React.FC<Props> = ({ user }) => {
     fetchMisiones();
   }, []);
 
+  // 🔹 Registrar nueva misión
   const registrarMision = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      if (res.ok) {
-        setForm({ ...form, titulo: "", descripcion: "", materiales: "" });
-        fetchMisiones();
-      }
+      await api.post("/misiones", form);
+      setForm({ ...form, titulo: "", descripcion: "", materiales: "" });
+      fetchMisiones();
     } catch (err) {
       console.error("Error al registrar misión:", err);
     }
   };
 
+  // 🔹 Actualizar estado de una misión
   const actualizarEstado = async (id: number, nuevoEstado: string) => {
     try {
-      const res = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado: nuevoEstado }),
-      });
-      if (res.ok) fetchMisiones();
+      await api.put(`/misiones/${id}`, { estado: nuevoEstado });
+      fetchMisiones();
     } catch (err) {
       console.error("Error al actualizar misión:", err);
     }

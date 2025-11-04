@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../services/api"; // ✅ usamos la instancia configurada con token
 
 interface Transmutation {
   id?: number;
@@ -9,9 +9,6 @@ interface Transmutation {
   resultado?: string;
   estado?: string;
 }
-
-// 🔹 URL corregida con prefijo /api
-const API_URL = "http://localhost:8080/api/transmutaciones";
 
 const Transmutaciones: React.FC = () => {
   const [transmutaciones, setTransmutaciones] = useState<Transmutation[]>([]);
@@ -27,7 +24,7 @@ const Transmutaciones: React.FC = () => {
   // 🔹 Cargar lista de transmutaciones
   const cargarTransmutaciones = async () => {
     try {
-      const res = await axios.get(API_URL);
+      const res = await api.get("/transmutaciones"); // ✅ usa api
       const data = Array.isArray(res.data) ? res.data : [];
       setTransmutaciones(data);
     } catch (err) {
@@ -45,9 +42,7 @@ const Transmutaciones: React.FC = () => {
     setProcesando(true);
 
     try {
-      const res = await axios.post(API_URL, nueva, {
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await api.post("/transmutaciones", nueva); // ✅ usa api
 
       setMensaje(res.data.message || "Transmutación creada con éxito");
       setNueva({ nombre: "", descripcion: "", costo: 0 });
@@ -146,7 +141,6 @@ const Transmutaciones: React.FC = () => {
         </button>
       </form>
 
-      {/* Animación mientras procesa */}
       {procesando && (
         <div style={{ margin: "2rem 0", textAlign: "center" }}>
           <div

@@ -4,75 +4,125 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"alquimia-backend/internal/handlers"
 	"alquimia-backend/internal/middleware"
 	"alquimia-backend/internal/models"
 	"alquimia-backend/internal/repository"
+	"alquimia-backend/internal/utils"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
 func main() {
-	// 🔹 Conectar a la base de datos
+	// ==========================================
+	// 🔹 CONEXIÓN Y MIGRACIÓN DE LA BASE DE DATOS
+	// ==========================================
 	repository.ConnectDB()
-
-	// 🔹 Migrar modelos automáticamente
 	repository.DB.AutoMigrate(
-		&models.User{},          // Usuarios (para login/register)
-		&models.Alquimista{},    // Alquimistas
-		&models.Transmutation{}, // Transmutaciones
-		&models.Mission{},       // Misiones
+		&models.User{},
+		&models.Alquimista{},
+		&models.Transmutation{},
+		&models.Mission{},
+		&models.Auditoria{},
 	)
 
-	// 🔹 Crear repositorios y handlers
+	// ==========================================
+	// 🔹 REPOSITORIOS Y HANDLERS
+	// ==========================================
 	userRepo := repository.NewUserRepository(repository.DB)
 	authHandler := handlers.NewAuthHandler(userRepo)
 
-	// 🔹 Configurar router principal
+	// ==========================================
+	// 🔹 CONFIGURACIÓN DEL ROUTER PRINCIPAL
+	// ==========================================
 	r := mux.NewRouter()
 
-	// =====================================================================
-	// 🔓 RUTAS PÚBLICAS (no requieren JWT)
-	// =====================================================================
-
-	// --- Autenticación ---
+	// ==========================================
+	// 🔓 RUTAS PÚBLICAS (sin autenticación)
+	// ==========================================
 	r.HandleFunc("/api/register", authHandler.Register).Methods("POST")
 	r.HandleFunc("/api/login", authHandler.Login).Methods("POST")
 
-	// --- Alquimistas ---
-	r.HandleFunc("/api/alquimistas", handlers.GetAlquimistas).Methods("GET")
-	r.HandleFunc("/api/alquimistas", handlers.CreateAlquimista).Methods("POST")
-
-	// --- Misiones ---
-	r.HandleFunc("/api/misiones", handlers.ListarMisiones).Methods("GET")
-	r.HandleFunc("/api/misiones", handlers.CrearMision).Methods("POST")
-	r.HandleFunc("/api/misiones/{id}", handlers.ActualizarEstadoMision).Methods("PUT")
-
-	// --- Transmutaciones ---
-	r.HandleFunc("/api/transmutaciones", handlers.GetTransmutaciones).Methods("GET")
-	r.HandleFunc("/api/transmutaciones", handlers.CreateTransmutation).Methods("POST")
-
-	// --- Health Check ---
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	}).Methods("GET")
 
-	// =====================================================================
-	// 🔐 RUTAS PRIVADAS (con JWT, listas para cuando quieras proteger algo)
-	// =====================================================================
-	apiPrivate := r.PathPrefix("/api/private").Subrouter()
-	apiPrivate.Use(middleware.JWTAuth)
+	// ==========================================
+	// 🔐 RUTAS PRIVADAS (con JWT)
+	// ==========================================
+	api := r.PathPrefix("/api").Subrouter()
+	api.Use(middleware.JWTAuth)
 
-	// Ejemplo de ruta privada (puedes añadir más luego)
-	apiPrivate.HandleFunc("/perfil", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Acceso autorizado con JWT ✅"))
+	// -------------------------------
+	// ⚗️ Transmutaciones
+	// Solo ALQUIMISTAS autenticados
+	// -------------------------------
+	api.Handle("/transmutaciones",
+		middleware.RequireRole("alquimista")(http.HandlerFunc(handlers.GetTransmutaciones)),
+	).Methods("GET")
+
+	api.Handle("/transmutaciones",
+		middleware.RequireRole("alquimista")(http.HandlerFunc(handlers.CreateTransmutation)),
+	).Methods("POST")
+
+	// -------------------------------
+	// 👩‍🔬 Alquimistas
+	// Solo SUPERVISORES
+	// -------------------------------
+	api.Handle("/alquimistas",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.GetAlquimistas)),
+	).Methods("GET")
+
+	api.Handle("/alquimistas",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.CreateAlquimista)),
+	).Methods("POST")
+
+	// -------------------------------
+	// 🚀 Misiones
+	// Solo SUPERVISORES
+	// -------------------------------
+	api.Handle("/misiones",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ListarMisiones)),
+	).Methods("GET")
+
+	api.Handle("/misiones",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.CrearMision)),
+	).Methods("POST")
+
+	api.Handle("/misiones/{id}",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ActualizarEstadoMision)),
+	).Methods("PUT")
+
+	// -------------------------------
+	// 🧾 Auditorías
+	// Solo SUPERVISORES
+	// -------------------------------
+	api.Handle("/auditorias",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ObtenerAuditorias)),
+	).Methods("GET")
+
+	api.Handle("/auditorias",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.CrearAuditoria)),
+	).Methods("POST")
+
+	// -------------------------------
+	// 👤 Perfil general (cualquier autenticado)
+	// -------------------------------
+	api.HandleFunc("/perfil", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("✅ Acceso autorizado con JWT"))
 	}).Methods("GET")
 
-	// =====================================================================
-	// 🌍 Configuración CORS
-	// =====================================================================
+	// ==========================================
+	// 🧠 VERIFICACIÓN AUTOMÁTICA EN SEGUNDO PLANO
+	// ==========================================
+	go iniciarVerificacionesPeriodicas()
+
+	// ==========================================
+	// 🌍 CONFIGURACIÓN DE CORS
+	// ==========================================
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
@@ -80,10 +130,29 @@ func main() {
 		AllowCredentials: true,
 	})
 
-	// =====================================================================
-	// 🚀 Iniciar servidor
-	// =====================================================================
+	// ==========================================
+	// 🚀 SERVIDOR
+	// ==========================================
 	handler := c.Handler(r)
 	fmt.Println("🚀 Servidor escuchando en: http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", handler))
+}
+
+// ==========================================
+// 🔁 TAREA PERIÓDICA AUTOMÁTICA
+// ==========================================
+func iniciarVerificacionesPeriodicas() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		var misiones []models.Mission
+		repository.DB.Where("estado != ?", "Completada").Find(&misiones)
+
+		if len(misiones) > 0 {
+			log.Printf("🔍 Verificación automática: %d misiones pendientes detectadas.", len(misiones))
+			utils.RegistrarAuditoriaAsync(0, "Verificación automática", "Misión",
+				fmt.Sprintf("Se detectaron %d misiones sin completar.", len(misiones)))
+		}
+	}
 }

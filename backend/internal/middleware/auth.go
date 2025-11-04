@@ -1,12 +1,21 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"alquimia-backend/internal/utils"
 
 	"github.com/golang-jwt/jwt/v5"
+)
+
+// Claves para guardar datos en el contexto
+type contextKey string
+
+const (
+	ContextUserID contextKey = "user_id"
+	ContextRole   contextKey = "role"
 )
 
 func JWTAuth(next http.Handler) http.Handler {
@@ -29,9 +38,17 @@ func JWTAuth(next http.Handler) http.Handler {
 			return
 		}
 
-		// Si necesitas usar los claims más adelante:
-		_ = token.Claims.(jwt.MapClaims)
+		// Extraer los claims
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			http.Error(w, "invalid claims", http.StatusUnauthorized)
+			return
+		}
 
-		next.ServeHTTP(w, r)
+		// Guardar en contexto
+		ctx := context.WithValue(r.Context(), ContextUserID, uint(claims["user_id"].(float64)))
+		ctx = context.WithValue(ctx, ContextRole, claims["role"].(string))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
