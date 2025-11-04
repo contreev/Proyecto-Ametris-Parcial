@@ -33,3 +33,34 @@ func RequireRole(requiredRole string) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+// ✅ NUEVO: permite acceso a múltiples roles (por ejemplo supervisor y alquimista)
+func RequireAnyRole(allowedRoles ...string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			roleVal := r.Context().Value(ContextRole)
+			if roleVal == nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "No se encontró el rol del usuario en el contexto",
+				})
+				return
+			}
+
+			role := roleVal.(string)
+			for _, allowed := range allowedRoles {
+				if role == allowed {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "Acceso denegado. Rol no autorizado",
+			})
+		})
+	}
+}

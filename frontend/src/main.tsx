@@ -8,6 +8,8 @@ import Alquimistas from "./pages/Alquimistas";
 import Misiones from "./pages/Misiones";
 import Transmutaciones from "./pages/Transmutaciones";
 import AuthPage from "./pages/AuthPage";
+import Materiales from "./pages/Materiales";
+
 
 const router = createBrowserRouter([
   {
@@ -18,10 +20,12 @@ const router = createBrowserRouter([
       { path: "alquimistas", element: <Alquimistas /> },
       { path: "misiones", element: <Misiones /> },
       { path: "transmutaciones", element: <Transmutaciones /> },
+      { path: "materiales", element: <Materiales /> },   // 👈 NUEVA RUTA
       { path: "auth", element: <AuthPage /> },
     ],
   },
 ]);
+
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

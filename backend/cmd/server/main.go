@@ -27,6 +27,7 @@ func main() {
 		&models.Transmutation{},
 		&models.Mission{},
 		&models.Auditoria{},
+		&models.Material{}, // materiales
 	)
 
 	// ==========================================
@@ -45,7 +46,6 @@ func main() {
 	// ==========================================
 	r.HandleFunc("/api/register", authHandler.Register).Methods("POST")
 	r.HandleFunc("/api/login", authHandler.Login).Methods("POST")
-
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK"))
 	}).Methods("GET")
@@ -57,8 +57,7 @@ func main() {
 	api.Use(middleware.JWTAuth)
 
 	// -------------------------------
-	// ⚗️ Transmutaciones
-	// Solo ALQUIMISTAS autenticados
+	// ⚗️ Transmutaciones (alquimista)
 	// -------------------------------
 	api.Handle("/transmutaciones",
 		middleware.RequireRole("alquimista")(http.HandlerFunc(handlers.GetTransmutaciones)),
@@ -69,8 +68,7 @@ func main() {
 	).Methods("POST")
 
 	// -------------------------------
-	// 👩‍🔬 Alquimistas
-	// Solo SUPERVISORES
+	// 👩‍🔬 Alquimistas (supervisor)
 	// -------------------------------
 	api.Handle("/alquimistas",
 		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.GetAlquimistas)),
@@ -81,8 +79,7 @@ func main() {
 	).Methods("POST")
 
 	// -------------------------------
-	// 🚀 Misiones
-	// Solo SUPERVISORES
+	// 🚀 Misiones (supervisor)
 	// -------------------------------
 	api.Handle("/misiones",
 		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ListarMisiones)),
@@ -97,8 +94,7 @@ func main() {
 	).Methods("PUT")
 
 	// -------------------------------
-	// 🧾 Auditorías
-	// Solo SUPERVISORES
+	// 🧾 Auditorías (supervisor)
 	// -------------------------------
 	api.Handle("/auditorias",
 		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ObtenerAuditorias)),
@@ -107,6 +103,29 @@ func main() {
 	api.Handle("/auditorias",
 		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.CrearAuditoria)),
 	).Methods("POST")
+
+	// -------------------------------
+	// 🧪 Materiales (lectura para alquimistas / CRUD para supervisores)
+	// -------------------------------
+	api.Handle("/materiales",
+		middleware.RequireAnyRole("supervisor", "alquimista")(http.HandlerFunc(handlers.ListarMateriales)),
+	).Methods("GET")
+
+	api.Handle("/materiales",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.CrearMaterial)),
+	).Methods("POST")
+
+	api.Handle("/materiales/{id}",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.ActualizarMaterial)),
+	).Methods("PUT")
+
+	api.Handle("/materiales/{id}",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.EliminarMaterial)),
+	).Methods("DELETE")
+
+	api.Handle("/materiales/{id}/ajustar",
+		middleware.RequireRole("supervisor")(http.HandlerFunc(handlers.AjustarStockMaterial)),
+	).Methods("PATCH")
 
 	// -------------------------------
 	// 👤 Perfil general (cualquier autenticado)
@@ -125,7 +144,7 @@ func main() {
 	// ==========================================
 	c := cors.New(cors.Options{
 		AllowedOrigins:   []string{"http://localhost:5173", "http://localhost"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Authorization", "Content-Type"},
 		AllowCredentials: true,
 	})

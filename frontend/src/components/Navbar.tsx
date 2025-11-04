@@ -8,6 +8,9 @@ const Navbar: React.FC = () => {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("email");
+    localStorage.removeItem("id");
     navigate("/auth?mode=login");
   };
 
@@ -28,12 +31,21 @@ const Navbar: React.FC = () => {
       <Link to="/misiones">⚔️ Misiones</Link>
       <Link to="/transmutaciones">⚗️ Transmutaciones</Link>
 
+      {/* 👇 Mostrar Materiales a cualquier usuario autenticado */}
+      {token && <Link to="/materiales">🧪 Materiales</Link>}
+
       {!token ? (
         <Link to="/auth?mode=login">🔐 Login / Registro</Link>
       ) : (
         <button
           onClick={handleLogout}
-          style={{ border: "none", background: "none", cursor: "pointer" }}
+          style={{
+            border: "none",
+            background: "none",
+            cursor: "pointer",
+            color: "#b91c1c",
+            fontWeight: "bold",
+          }}
         >
           🚪 Cerrar sesión
         </button>

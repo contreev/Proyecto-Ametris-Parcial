@@ -28,33 +28,39 @@ services:
     depends_on:
       - db
       - redis
+    working_dir: /root
     environment:
       DB_HOST: db
-      DB_PORT: 5432
+      DB_PORT: "5432"
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: alquimia
+      JWT_SECRET: clave_segura_123
     ports:
       - "8080:8080"
-    volumes:
-      - ./backend:/app
+    # ⚠️ Opcional: quita este volumen en producción para no pisar el binario del contenedor
+    # Si quieres hot-reload en dev, mantenlo, pero ajusta el working_dir o la ruta del binario.
+    # volumes:
+    #   - ./backend:/app
     command: ["./alquimia-backend"]
 
   worker:
     build:
       context: ./backend
     container_name: alquimia_worker
-    command: ["./worker"]
+    restart: always
     depends_on:
       - db
       - redis
+    working_dir: /root
     environment:
       DB_HOST: db
-      DB_PORT: 5432
+      DB_PORT: "5432"
       DB_USER: postgres
       DB_PASSWORD: postgres
       DB_NAME: alquimia
-    restart: always
+      JWT_SECRET: clave_segura_123
+    command: ["./worker"]
 
   frontend:
     build: ./frontend
